@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Denial of Service Demonstration</title>
+    <link rel="stylesheet" type="text/css" href="output.css">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+
+    <script>
+        var i = 0;
+        var txt = "Denial of Service Attack Demonstration";
+        var speed = 50;
+        let isServerDown = false;
+        
+        // Configuration - using 1000ms (1 second) for all checks
+        const config = {
+            normalResponseTime: 1000,
+            warningThreshold: 3000,
+            criticalThreshold: 5000
+        };
+    
+        function typeWriter() {
+            if (i < txt.length) {
+                document.getElementById("intro-text").innerHTML += txt.charAt(i);
+                i++;
+                setTimeout(typeWriter, speed);
+            }
+        }
+    
+        function showSlowAlert(time) {
+            const alert = document.getElementById('crash-alert');
+            alert.textContent = `⚠️ SERVER EXTREMELY SLOW (${Math.round(time)}ms response)`;
+            alert.classList.remove('hidden', 'bg-red-600');
+            alert.classList.add('bg-amber-600');
+            
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 5000);
+        }
+    
+        async function updateStats() {
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch('apache_proxy.php');
+                const responseTime = performance.now() - startTime;
+                
+                // Update response time display
+                document.getElementById('response-time').textContent = Math.round(responseTime) + 'ms';
+                const responseElement = document.getElementById('response-time');
+                
+                if (responseTime > config.criticalThreshold) {
+                    responseElement.className = 'text-red-500';
+                    if (!isServerDown) showSlowAlert(responseTime);
+                } 
+                else if (responseTime > config.warningThreshold) {
+                    responseElement.className = 'text-yellow-500 text-5xl';
+                } 
+                else {
+                    responseElement.className = 'text-purple-400 text-5xl';
+                }
+    
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                
+                // Server recovery case
+                if (isServerDown) {
+                    document.getElementById('crash-alert').classList.add('hidden');
+                    document.getElementById('apache-logs').classList.remove('text-red-500 text-5xl');
+                    isServerDown = false;
+                }
+    
+                // Update all metrics
+                updateMetrics(data);
+                
+            } catch (error) {
+                handleError(error);
+            }
+        }
+    
+        function updateMetrics(data) {
+            // Verify data structure exists before updating
+            if (data.connections !== undefined) {
+                document.getElementById('connection-count').textContent = data.connections;
+                document.getElementById('live-connections').textContent = data.connections;
+            }
+            
+            if (data.ram !== undefined) {
+                const ramBar = document.getElementById('ram-usage-bar');
+                ramBar.style.width = data.ram + '%';
+                ramBar.textContent = data.ram + '%';
+                document.getElementById('live-ram').textContent = data.ram + '%';
+            }
+            
+            if (data.cost_per_connection !== undefined) {
+                document.getElementById('per-connection-cost').textContent = 
+                    data.cost_per_connection + " MB";
+            }
+            
+            if (data.logs) {
+                const logsContainer = document.getElementById('apache-logs');
+                let coloredLogs = '';
+                
+                data.logs.split('\n').forEach(line => {
+                    if (line.includes('GET')) {
+                                coloredLogs += `<span style="color: #4ade80">${line}</span>\n`;
+                            } 
+                            else if (line.includes('POST')) {
+                                coloredLogs += `<span style="color: #fbbf24">${line}</span>\n`;
+                            }
+                            else if (line.includes('404')) {
+                                coloredLogs += `<span style="color: #f87171">${line}</span>\n`;
+                            }
+                            else if (line.includes('500')) {
+                                coloredLogs += `<span style="color: #dc2626">${line}</span>\n`;
+                            }
+                            else {
+                                coloredLogs += `<span style="color: #a3a3a3">${line}</span>\n`;
+                            }
+                });
+                
+                logsContainer.innerHTML = coloredLogs || '<span style="color: #d4d4d8">Waiting for logs...</span>';
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+            
+            document.getElementById('update-time').textContent = new Date().toLocaleTimeString();
+        }
+    
+        function handleError(error) {
+            console.error('Fetch error:', error);
+            if (!isServerDown) {
+                document.getElementById('crash-alert').classList.remove('hidden');
+                document.getElementById('apache-logs').classList.add('text-red-500');
+                document.getElementById('apache-logs').innerHTML = 
+                    '<span style="color: #f87171">[SERVER ERROR] ' + new Date().toLocaleTimeString() + '</span>';
+                
+                // Reset metrics
+                document.getElementById('connection-count').textContent = "0";
+                document.getElementById('live-connections').textContent = "0";
+                document.getElementById('ram-usage-bar').style.width = "0%";
+                document.getElementById('ram-usage-bar').textContent = "0%";
+                document.getElementById('live-ram').textContent = "0%";
+                
+                isServerDown = true;
+            }
+        }
+    
+        // Start updates every second
+        setInterval(updateStats, 1000);
+        updateStats(); // Initial load
+        typeWriter();
+    </script>
+   
+    
+  
+</head>
+<body onload="typeWriter()" background="./images/">
+    <!-- Server Crash Alert -->
+<div id="crash-alert" class="hidden fixed inset-x-0 top-0 bg-red-600 text-white p-4 text-center z-50 shadow-lg">
+    🚨 VICTIM SERVER DOWN 🚨
+</div>
+    <div class="min-h-screen p-4">
+        <!-- Header Section -->
+        <header class="bg-gradient-to-r from-blue-900 to-gray-800 p-6 mb-8 
+                  border-b-4 border-cyan-400 shadow-lg shadow-cyan-500/20">
+      <h1 class="text-3xl px-2 font-bold text-cyan-400">CSE3012 - Network Security Lab</h1>
+      <p class="text-xl px-2 text-white mt-2">Denial of Service Attack Demonstration</p>
+      
+    </header>
+        
+        <!-- Content Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mt-4">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
+                <!-- Dynamic Connection Counter -->
+                <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-cyan-400 hover:scale-105 transition-transform">
+                  <div class="text-5xl font-bold text-cyan-400 mb-2" id="live-connections">0</div>
+                  <div class="text-gray-400">Active Connections</div>
+                </div>
+                
+                <!-- RAM Usage -->
+                <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-red-400 hover:scale-105 transition-transform">
+                  <div class="text-5xl font-bold text-red-400 mb-2" id="live-ram">0%</div>
+                  <div class="text-gray-400">Server RAM Consumed</div>
+                </div>
+                
+                <!-- Attack Scale -->
+                <div class="bg-gray-800 p-6 rounded-xl border-l-4 border-yellow-400 hover:scale-105 transition-transform">
+                    <div class="text-5xl font-bold text-yellow-400 mb-2" id="response-time">0 ms</div>
+                  <div class="text-gray-400">Response Time:</div>
+                </div>
+              </div>
+            <!-- Box 1 -->
+            <div class="bg-black rounded-lg p-4 font-mono text-green-400 border border-cyan-400 
+            shadow-lg shadow-cyan-400/30 overflow-x-auto">
+  <div class="flex items-center mb-3">
+    <div class="h-3 w-3 bg-red-500 rounded-full mr-2"></div>
+    <div class="h-3 w-3 bg-yellow-500 rounded-full mr-2"></div>
+    <div class="h-3 w-3 bg-green-500 rounded-full mr-3"></div>
+    <span class="text-gray-400">user@kali:~</span>
+  </div>
+  <code class="block whitespace-pre">
+    <span class="text-purple-400">$</span> python3 slowloris.py 192.168.1.100 -p 80 -s 5000 -v
+    <span class="animate-pulse">|</span>
+  </code>
+</div>
+
+<!--Terminal Realtime log fetch -->
+
+<div class="bg-gray-800 rounded-lg p-4 shadow-lg col-span-2 border border-cyan-400">
+    <h3 class="text-xl font-bold text-cyan-400 mb-4">
+        <span class="animate-pulse">🔴</span> LIVE Apache Attack Monitor
+    </h3>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Connections -->
+        <div class="bg-gray-900 p-3 rounded-lg border border-gray-600">
+            <div class="text-sm text-gray-400">ESTABLISHED CONNECTIONS</div>
+            <div class="text-3xl font-mono text-green-400" id="connection-count">0</div>
+        </div>
+        
+        <!-- RAM -->
+        <div class="bg-gray-900 p-3 rounded-lg border border-gray-600">
+            <div class="text-sm text-gray-400">RAM USAGE</div>
+            <div class="w-full bg-gray-700 h-6 rounded-full mt-2 overflow-hidden">
+                <div id="ram-usage-bar" class="bg-gradient-to-r from-red-500 to-yellow-500 h-6 
+                    text-xs text-white font-bold text-center" style="width: 0%">0%</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Logs -->
+    <div class="mb-2 flex justify-between text-gray-400 text-sm">
+        <div>LAST 5 REQUESTS:</div>
+        <div>VM IP: 192.168.138.129</div>
+    </div>
+    <div class="bg-black rounded p-3 h-40 overflow-y-auto font-mono text-sm text-green-400 
+               border border-gray-600">
+               <pre id="apache-logs" class="whitespace-pre-wrap">Waiting for Apache logs.....</pre>
+    </div>
+    
+    <!-- Status -->
+    <div class="mt-3 text-right text-xs text-yellow-400">
+        Last updated: <span id="update-time"></span>
+    </div>
+</div>
+             <!--Dos intro box -->
+            <div class="bg-gray-200 rounded-lg p-4 shadow-lg h-full">
+                <h4 class="font-bold text-lg mb-2">What is Denial of Service Attack?</h4>
+                <p>A Denial of Service (DoS) attack is a malicious attempt to overwhelm a website or server with excessive traffic, making it slow or completely unavailable to legitimate users.</p>
+            </div>
+            
+            <!-- Box 2 -->
+            <div class="bg-gray-200 rounded-lg p-4 shadow-lg h-full">
+                <h4 class="font-bold text-lg mb-2">Setup Used:</h4>
+                <ul class="list-disc pl-5">
+                    <li>1. Kali Linux Vmware running Apache Server(Victim)</li>
+                    <li>2. Kali Linux WSLI(Attacker)</li>
+                </ul>
+            </div>
+            
+            <!-- Box 3 -->
+            <div class="bg-gray-200 rounded-lg p-4 shadow-lg h-full">
+                <h5 class="font-bold text-lg mb-2">Attack Method:</h5>
+                <p>Slowloris Attack "Slowloris works by opening multiple partial HTTP connections to the target server and keeping them open as long as possible. The -s 5000 parameter creates 5000 such connections, which:</p>
+                <ul class="list-disc pl-5 mt-2">
+                    <li>Consumes all available worker threads on the server</li>
+                    <li>Prevents legitimate connections from being processed</li>
+                    <li>Doesn't require high bandwidth (making it hard to detect)</li>
+                    <li>Exploits the HTTP protocol's design rather than using malformed packets</li>
+                </ul>
+            </div>
+            
+            <!-- Box 4 -->
+            <div class="bg-gray-200 rounded-lg p-4 shadow-lg h-full ">
+                <h4 class="font-bold text-lg mb-2">Team Members:</h4>
+                <ul class="list-disc pl-5">
+                    <li class="">Ayush Pandey - 22BCE7723</li>
+                    <li class="">Jignesh Atul Paratane - 22BCE7662</li>
+                    <li class="">Shruti Gugilwar - 22BCE8957</li>
+                    <li class="">Anurag Gautam - 22BCE9222</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
