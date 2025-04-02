@@ -1,18 +1,33 @@
 # DoS Attack Monitoring Dashboard
 
-This project demonstrates a Denial of Service (DoS) attack simulation with real-time monitoring capabilities. The system consists of:
+## Project Overview
+This demonstration showcases a Denial of Service (DoS) attack simulation with real-time monitoring capabilities. The system consists of:
 
 - **Victim Server**: Kali Linux VM running Apache with PHP monitoring scripts
 - **Dashboard**: Web-based monitoring interface running on XAMPP (Windows)
 - **Attack Script**: Python Slowloris implementation
 
-The dashboard connects to the victim server's PHP endpoint to visualize:
+The dashboard visualizes:
 - Active connection count
 - RAM utilization
 - Response times
 - Apache access logs
 
-All monitoring data is displayed in an interactive web interface with visual alerts when attack thresholds are reached.
+## How to Run
+
+1. **Victim VM Setup**:
+   - Place `apache_stats.php` in `/var/www/html/` on the Kali VM
+   - Configure VM network as **Host-Only** in VMware/VirtualBox
+
+2. **Host PC Setup**:
+   - Put the `dos-dashboard` folder in XAMPP's `htdocs` directory
+   - Update all IP references in code files to match your VM's IP
+   - Start Apache service in XAMPP
+
+3. **Execution**:
+   - Run the attack from another VM/WSL on the same host
+   - Monitor results at `http://localhost/dos-dashboard/`
 
 > **Educational Use Only**  
-> This demonstration was created for network security studies.
+> Requires proper authorization for testing.  
+> Default credentials: No authentication implemented (for lab use only).
