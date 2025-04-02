@@ -4,7 +4,7 @@ header("Access-Control-Allow-Origin: *");  // Allow all origins (for testing)
 header("Access-Control-Allow-Methods: GET"); 
 //windows file 
 // VM's IP 
-$vm_ip = "192.168.138.129"; 
+$vm_ip = "VM_IP_ADDRESS"; 
 
 // Use curl to fetch stats from VM
 $ch = curl_init();
